@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111311">
+  <meta name="description" content="Explore SABOR's menu in 3D and view dishes in augmented reality.">
+  <title>SABOR — The menu, reimagined</title>
+  <script type="module" id="viewer-library"
+    src="https://unpkg.com/@google/model-viewer@4.0.0/dist/model-viewer.min.js"></script>
+  <style>
+    :root { color-scheme: dark; --bg:#111311; --panel:#1b1e1a; --line:#343a30;
+      --text:#f4f5ee; --muted:#b5bcae; --accent:#c4f279; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; scroll-padding-top:90px; }
+    body { margin:0; background:var(--bg); color:var(--text);
+      font:16px/1.6 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    button,a,summary { -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+    button { font:inherit; cursor:pointer; }
+    a { color:inherit; }
+    :focus-visible { outline:3px solid var(--accent); outline-offset:5px; }
+    .wrap { width:min(100% - 32px,740px); margin:auto; }
+    .skip { position:fixed; top:-100px; left:16px; z-index:10; padding:12px;
+      background:var(--accent); color:var(--bg); }
+    .skip:focus { top:12px; }
+    header { padding:36px 0 26px; }
+    .brand { display:flex; align-items:center; gap:12px; font-weight:800; letter-spacing:.18em; }
+    .logo { display:grid; place-items:center; width:44px; height:44px; border-radius:50%;
+      background:var(--accent); color:var(--bg); font:italic 700 30px Georgia,serif; }
+    .eyebrow { color:var(--accent); text-transform:uppercase; letter-spacing:.16em;
+      font-size:11px; font-weight:750; margin:30px 0 10px; }
+    h1 { font:400 clamp(40px,9vw,64px)/1.05 Georgia,serif; letter-spacing:-.035em; margin:0 0 18px; }
+    h1 em { color:var(--accent); }
+    header p { color:var(--muted); max-width:480px; margin:0; }
+    .note { font-size:12px; color:var(--muted); }
+    .demo-note { margin-top:18px; padding-left:12px; border-left:2px solid var(--accent); }
+    nav { position:sticky; top:0; z-index:5; background:var(--bg); border-block:1px solid var(--line);
+      padding-top:env(safe-area-inset-top); }
+    .tabs { display:flex; gap:8px; padding:10px 0; }
+    .tabs a { flex:1; text-align:center; text-decoration:none; padding:10px 8px;
+      min-height:46px; border-radius:30px; color:var(--muted); font-size:14px; font-weight:650; }
+    .tabs a[aria-current="location"] { background:var(--accent); color:var(--bg); }
+    main { padding-bottom:24px; }
+    section { padding-top:28px; scroll-margin-top:8px; }
+    .section-heading { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px; }
+    h2 { font:400 29px Georgia,serif; margin:0; }
+    .count { font-size:12px; color:var(--muted); }
+    details { background:var(--panel); border:1px solid var(--line); border-radius:20px;
+      overflow:hidden; margin-bottom:12px; }
+    details[open] { border-color:var(--accent); }
+    summary { list-style:none; cursor:pointer; display:grid;
+      grid-template-columns:54px minmax(0,1fr) auto; align-items:start; gap:12px; padding:20px 16px; }
+    summary::-webkit-details-marker { display:none; }
+    .dish-icon { width:54px; height:62px; display:grid; place-items:center;
+      border-radius:14px; background:#272e21; font-size:33px; }
+    .dish-name { display:block; font-weight:700; line-height:1.35; }
+    .description { display:block; color:var(--muted); font-size:13px; margin-top:7px; }
+    .tag { display:inline-flex; gap:5px; align-items:center; font-size:11px;
+      color:var(--accent); border:1px solid #4a583a; border-radius:20px; padding:2px 8px; margin-top:10px; }
+    .price { display:block; text-align:right; white-space:nowrap; font-size:14px; font-weight:700; }
+    .expand { display:block; color:var(--accent); font-size:11px; text-align:right; margin-top:16px; }
+    details[open] .expand { font-size:0; }
+    details[open] .expand::after { content:"Close −"; font-size:11px; }
+    .preview { border-top:1px solid var(--line); }
+    model-viewer { display:block; width:100%; height:340px; height:clamp(280px,65vw,380px);
+      background:radial-gradient(ellipse at center,#35412a 0%,#20261c 55%,#171b15 100%);
+      --progress-bar-color:var(--accent); --progress-bar-height:3px; }
+    .ar-button,.retry { min-height:48px; border:0; border-radius:30px;
+      padding:12px 22px; background:var(--accent); color:var(--bg); font-weight:750; }
+    .ar-button { position:absolute; bottom:18px; left:50%; transform:translateX(-50%); white-space:nowrap; }
+    .ar-button:disabled { opacity:.55; cursor:wait; }
+    .viewer-footer { padding:14px 18px 18px; }
+    .status { margin:0; color:var(--muted); font-size:13px; }
+    .retry { margin-top:12px; }
+    [hidden] { display:none !important; }
+    #library-error { margin-top:20px; color:var(--accent); }
+    footer { border-top:1px solid var(--line); padding:24px 0 max(28px,env(safe-area-inset-bottom)); }
+    footer p { margin:4px 0; }
+    @media (min-width:600px) { summary { padding:24px; gap:18px; }
+      .dish-name { font-size:18px; } .description { font-size:14px; } }
+    @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#menu">Skip to menu</a>
+  <header class="wrap">
+    <div class="brand"><span class="logo" aria-hidden="true">s</span> SABOR</div>
+    <p class="eyebrow">Good food. A new perspective.</p>
+    <h1>A little curiosity.<br><em>A lot of flavour.</em></h1>
+    <p>Find your next favourite. Tap a dish to explore it in 3D, then bring it to your table in AR.</p>
+    <p class="note demo-note">Demo menu · Astronaut models stand in for food scans.</p>
+    <p id="library-error" role="status" hidden></p>
+  </header>
+  <nav aria-label="Menu categories">
+    <div class="wrap tabs">
+      <a href="#starters" aria-current="location">Starters</a>
+      <a href="#mains">Mains</a>
+      <a href="#desserts">Desserts</a>
+    </div>
+  </nav>
+  <main id="menu" class="wrap" tabindex="-1">
+    <noscript>Please enable JavaScript to display the interactive menu.</noscript>
+  </main>
+  <footer class="wrap note">
+    <p>Made to be explored. Prepared to be enjoyed.</p>
+    <p>Sample prices in AED · Dietary labels are illustrative.</p>
+    <p>Ask your server about ingredients and allergies.</p>
+    <p>3D sample: Smithsonian / <a href="https://modelviewer.dev/" target="_blank" rel="noopener">model-viewer</a>.</p>
+  </footer>
+  <script>
+    "use strict";
+    // Replace each dish's glb/usdz with its commented relative paths.
+    const SAMPLE = {
+      glb: "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
+      usdz: "https://modelviewer.dev/shared-assets/models/Astronaut.usdz"
+    };
+    const dishes = [
+      { id:"burrata", category:"starters", name:"Garden Burrata", price:38, icon:"🥗",
+        description:"Creamy burrata, heirloom tomatoes, basil and extra virgin olive oil.", tag:"veg",
+        glb:SAMPLE.glb, usdz:SAMPLE.usdz, demo:true }, // ./models/burrata.glb | ./models/burrata.usdz
+      { id:"prawns", category:"starters", name:"Chilli Garlic Prawns", price:46, icon:"🍤",
+        description:"Sizzling prawns with roasted garlic, red chilli and a squeeze of lime.", tag:"spicy",
+        glb:SAMPLE.glb, usdz:SAMPLE.usdz, demo:true }, // ./models/prawns.glb | ./models/prawns.usdz
+      { id:"burger", category:"mains", name:"The Sabor Burger", price:64, icon:"🍔",
+        description:"Grilled beef, cheddar, chilli relish and house sauce in a brioche bun.", tag:"spicy",
+        glb:SAMPLE.glb, usdz:SAMPLE.usdz, demo:true }, // ./models/burger.glb | ./models/burger.usdz
+      { id:"salmon", category:"mains", name:"Citrus Grilled Salmon", price:82, icon:"🐟",
+        description:"Grilled salmon, lemon herb potatoes and seasonal greens.", tag:"gf",
+        glb:SAMPLE.glb, usdz:SAMPLE.usdz, demo:true }, // ./models/salmon.glb | ./models/salmon.usdz
+      { id:"fondant", category:"desserts", name:"Chocolate Fondant", price:34, icon:"🍫",
+        description:"Warm dark chocolate cake with a molten centre and vanilla ice cream.", tag:"veg",
+        glb:SAMPLE.glb, usdz:SAMPLE.usdz, demo:true }, // ./models/fondant.glb | ./models/fondant.usdz
+      { id:"sorbet", category:"desserts", name:"Mango & Lime Sorbet", price:28, icon:"🥭",
+        description:"Sunshine in a scoop: ripe mango, fresh lime and a little mint.", tag:"gf",
+        glb:SAMPLE.glb, usdz:SAMPLE.usdz, demo:true } // ./models/sorbet.glb | ./models/sorbet.usdz
+    ];
+    const tags = { veg:["♧","Vegetarian"], spicy:["♨","Spicy"], gf:["GF","Gluten-free"] };
+    const categories = { starters:"Starters", mains:"Mains", desserts:"Desserts" };
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+    const menu = document.querySelector("#menu");
+    const escapeHTML = value => String(value).replace(/[&<>"']/g,
+      char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+    let activeCard = null;
+    let disposeViewer = () => {};
+
+    for (const [category, title] of Object.entries(categories)) {
+      const items = dishes.filter(dish => dish.category === category);
+      const section = document.createElement("section");
+      section.id = category;
+      section.setAttribute("aria-labelledby", `${category}-title`);
+      section.innerHTML = `<div class="section-heading"><h2 id="${category}-title">${title}</h2>
+        <span class="count">${items.length} dishes</span></div>`;
+      for (const dish of items) {
+        const [symbol,label] = tags[dish.tag];
+        const card = document.createElement("details");
+        card.id = dish.id;
+        card.innerHTML = `<summary>
+          <span class="dish-icon" aria-hidden="true">${dish.icon}</span>
+          <span><span class="dish-name">${escapeHTML(dish.name)}</span>
+            <span class="description">${escapeHTML(dish.description)}</span>
+            <span class="tag"><span aria-hidden="true">${symbol}</span>${label}</span></span>
+          <span><span class="price">AED ${dish.price.toFixed(0)}</span><span class="expand">3D / AR +</span></span>
+        </summary><div class="preview"></div>`;
+        card.addEventListener("toggle", () => {
+          if (card.open) {
+            if (activeCard && activeCard !== card) activeCard.open = false;
+            disposeViewer();
+            activeCard = card;
+            mountViewer(card, dish);
+          } else if (activeCard === card) {
+            disposeViewer();
+            activeCard = null;
+          }
+        });
+        section.append(card);
+      }
+      menu.append(section);
+    }
+
+    function mountViewer(card, dish) {
+      const panel = card.querySelector(".preview");
+      const viewer = document.createElement("model-viewer");
+      const attributes = {
+        src:dish.glb, alt:dish.demo ? `Astronaut placeholder for ${dish.name}` : `3D view of ${dish.name}`,
+        ar:"", "ar-modes":"scene-viewer quick-look", "camera-controls":"",
+        "touch-action":"pan-y", "shadow-intensity":"1", exposure:"1",
+        "interaction-prompt":"auto", loading:"eager", "ar-placement":"floor"
+      };
+      if (dish.usdz) attributes["ios-src"] = dish.usdz;
+      if (!reducedMotion.matches) attributes["auto-rotate"] = "";
+      for (const [name,value] of Object.entries(attributes)) viewer.setAttribute(name,value);
+      const arButton = document.createElement("button");
+      arButton.type = "button";
+      arButton.slot = "ar-button";
+      arButton.className = "ar-button";
+      arButton.textContent = "View in AR ↗";
+      arButton.setAttribute("aria-label", `View ${dish.name} in augmented reality`);
+      arButton.disabled = true;
+      viewer.append(arButton); // model-viewer handles the native AR button click.
+      const footer = document.createElement("div");
+      footer.className = "viewer-footer";
+      footer.innerHTML = `<p class="status" role="status">Loading 3D preview…</p>
+        <button type="button" class="retry" hidden>Retry preview</button>`;
+      const status = footer.querySelector(".status");
+      const retry = footer.querySelector(".retry");
+      const fail = message => { status.textContent = message; retry.hidden = false; };
+      const timer = setTimeout(() => fail("Still loading. Check your connection or retry."), 30000);
+      viewer.addEventListener("load", () => {
+        clearTimeout(timer);
+        retry.hidden = true;
+        arButton.disabled = false;
+        status.textContent = viewer.canActivateAR
+          ? "Drag to rotate · Pinch to zoom · Tap View in AR to place the model."
+          : "Drag to rotate · Pinch to zoom. For AR, open this page in Safari on a compatible iPhone or Chrome on a compatible Android phone.";
+        if (dish.demo) status.textContent += " Demo astronaut; food scan coming soon.";
+      });
+      viewer.addEventListener("error", () => {
+        clearTimeout(timer);
+        arButton.disabled = true;
+        fail("The 3D preview could not load. Check your connection and model files.");
+      });
+      viewer.addEventListener("ar-status", event => {
+        if (event.detail.status === "failed") {
+          status.textContent = "AR could not start. Open this page directly in Safari or Chrome on a supported phone, then try again.";
+        }
+      });
+      retry.addEventListener("click", () => {
+        if (!customElements.get("model-viewer")) { location.reload(); return; }
+        disposeViewer();
+        mountViewer(card, dish);
+      });
+      panel.replaceChildren(viewer,footer);
+      disposeViewer = () => { clearTimeout(timer); panel.replaceChildren(); };
+    }
+
+    reducedMotion.addEventListener("change", () => {
+      document.querySelectorAll("model-viewer").forEach(viewer =>
+        viewer.toggleAttribute("auto-rotate", !reducedMotion.matches));
+    });
+    document.querySelector("#viewer-library").addEventListener("error", () => {
+      const notice = document.querySelector("#library-error");
+      notice.hidden = false;
+      notice.textContent = "3D is temporarily unavailable. Check your connection and reload; the menu remains available.";
+    });
+
+    // Anchor tabs preserve one continuous menu. Highlight the visible section.
+    const links = [...document.querySelectorAll(".tabs a")];
+    const sections = [...menu.querySelectorAll("section")];
+    let scheduled = false;
+    function updateCategory() {
+      const threshold = document.querySelector("nav").getBoundingClientRect().bottom + 60;
+      let current = sections[0];
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top <= threshold) current = section;
+      }
+      if (Math.ceil(innerHeight + scrollY) >= document.documentElement.scrollHeight - 2) {
+        current = sections[sections.length - 1];
+      }
+      links.forEach(link => {
+        if (link.hash === `#${current.id}`) link.setAttribute("aria-current","location");
+        else link.removeAttribute("aria-current");
+      });
+      scheduled = false;
+    }
+    addEventListener("scroll", () => {
+      if (!scheduled) { scheduled = true; requestAnimationFrame(updateCategory); }
+    }, {passive:true});
+    addEventListener("resize", updateCategory);
+    updateCategory();
+  </script>
+</body>
+</html>
